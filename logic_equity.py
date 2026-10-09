@@ -298,7 +298,7 @@ def write_metrics(all_data, est_path):
                 ws[f"{col_letter}{row}"].value = val
 
     wb.save(est_path)
-    print("✓ Fund Ranking_Equity updated")
+    print("[OK] Fund Ranking_Equity updated")
 
 
 def update_estimation(kotak_path, est_path):

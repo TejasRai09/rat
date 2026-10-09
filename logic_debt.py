@@ -11,52 +11,54 @@ METRICS = [
     "Sovereign", "AAA/A1+", "AA+", "AA/AA-", "Below AA-", "Cash and Fixed Deposits"
 ]
 
-# Configuration for each duration block: (sheet name, schemes list, header row, first output row)
+# Configuration for each duration block: (Kotak sheet name, schemes list, header row, first output row)
+# Kotak renamed its debt categories in Sep 2026 (e.g. "Low Duration" -> "Ultra Short to Short Term").
+# Scheme order must match the fund rows in the Estimation "Fund Ranking_Debt" sheet.
 BLOCKS = [
-    ("Ultra Short Duration", [
-        "Aditya Birla Sun Life Savings Fund - Reg - Growth",
+    ("Ultra Short Term", [
+        "Aditya Birla Sun Life Ultra Short Term Fund - Reg - Growth",
         "HDFC Ultra Short Term Fund - Reg - Growth",
-        "SBI Magnum Ultra Short Duration Fund - Growth",
+        "SBI Ultra Short Term Fund - Growth",
         "ICICI Prudential Ultra Short Term Fund - Growth",
-        "Kotak Savings Fund - Reg - Growth",
-        "Nippon India Ultra Short Duration Fund - Reg - Growth",
-        "UTI Ultra Short Duration Fund - Growth"
+        "Kotak Ultra Short Term Fund - Reg - Growth",
+        "Nippon India Ultra Short Term Fund - Reg - Growth",
+        "UTI Ultra Short Term Fund - Growth"
     ], 6, 7),
-    ("Low Duration", [
-        "ICICI Prudential Savings Fund - Reg - Growth",
-        "HDFC Low Duration Fund - Growth",
-        "SBI Magnum Low Duration Fund - Growth",
-        "Aditya Birla Sun Life Low Duration Fund - Reg - Growth",
-        "Kotak Low Duration Fund - Std - Growth",
-        "Nippon India Low Duration Fund - Reg - Growth",
-        "UTI Low Duration Fund - Reg - Growth"
+    ("Ultra Short to Short Term", [
+        "ICICI Prudential Ultra Short to Short Term Fund - Reg - Growth",
+        "HDFC Ultra Short to Short Term Fund - Growth",
+        "SBI Ultra Short to Short Term Fund - Growth",
+        "Aditya Birla Sun Life Ultra Short to Short Term Fund - Reg - Growth",
+        "Kotak Ultra Short to Short Term Fund - Reg - Growth",
+        "Nippon India Ultra Short to Short Term Fund - Reg - Growth",
+        "UTI Ultra Short to Short Term Fund - Reg - Growth"
     ], 18, 19),
-    ("Short Duration", [
+    ("Short Term", [
         "ICICI Prudential Short Term Fund - Growth",
-        "Kotak Bond Short Term Fund - Reg - Growth",
-        "HDFC Short Term Debt Fund - Growth",
-        "SBI Short Term Debt Fund - Growth",
+        "Kotak Short Term Fund - Reg - Growth",
+        "HDFC Short Term Fund - Growth",
+        "SBI Short Term Fund - Growth",
         "Aditya Birla Sun Life Short Term Fund - Reg - Growth",
-        "Nippon India Short Duration Fund - Reg - Growth",
-        "UTI Short Duration Fund - Reg - Growth"
+        "Nippon India Short Term Fund - Reg - Growth",
+        "UTI Short Term Fund - Reg - Growth"
     ], 30, 31),
-    ("Medium Duration", [
-        "SBI Magnum Medium Duration Fund - Growth",
-        "ICICI Prudential Medium Term Bond Fund - Growth",
-        "HDFC Medium Term Debt Fund - Growth",
-        "Aditya Birla Sun Life Medium Term Plan - Reg - Growth",
+    ("Medium Term", [
+        "SBI Medium Term Fund - Growth",
+        "ICICI Prudential Medium Term Fund - Growth",
+        "HDFC Medium Term Fund - Growth",
+        "Aditya Birla Sun Life Medium Term Fund - Reg - Growth",
         "Kotak Medium Term Fund - Reg - Growth",
-        "Nippon India Medium Duration Fund - Reg - Growth",
-        "UTI Medium Duration Fund - Reg - Growth"
+        "Nippon India Medium Term Fund - Reg - Growth",
+        "UTI Medium Term Fund - Reg - Growth"
     ], 41, 42),
-    ("Medium to Long Duration", [
-        "ICICI Prudential Bond Fund - Growth",
-        "Aditya Birla Sun Life Income Fund - Reg - Growth",
-        "Kotak Bond Fund - Reg - Growth",
-        "SBI Magnum Income Fund - Growth",
-        "HDFC Income Fund - Growth",
-        "Nippon India Medium to Long Duration Fund - Reg - G P - Growth",
-        "UTI Medium to Long Duration Fund - Growth"
+    ("Medium to Long Term", [
+        "ICICI Prudential Medium to Long Term Fund - Growth",
+        "Aditya Birla Sun Life Medium to Long Term Fund - Reg - Growth",
+        "Kotak Medium to Long Term Fund - Reg - Growth",
+        "SBI Medium to Long Term Fund - Growth",
+        "HDFC Medium to Long Term Fund - Growth",
+        "Nippon India Medium to Long Term Fund - Reg - G P - Growth",
+        "UTI Medium to Long Term Fund - Growth"
     ], 52, 53)
 ]
 
@@ -68,7 +70,7 @@ def flatten_kotak(kotak_path, sheet_name):
 
     df = raw.rename(columns={raw.columns[0]: "Scheme"})
     df["Scheme"] = df["Scheme"].str.strip()
-    df = df.applymap(lambda x: 0 if isinstance(x, str) and x.strip() == "--" else x)
+    df = df.map(lambda x: 0 if isinstance(x, str) and x.strip() == "--" else x)
     print(f"[DEBUG] Cleaned columns: {df.columns.tolist()}")
     return df
 
@@ -100,7 +102,7 @@ def process(est_path, kotak_path):
         # Extract and round values
         data = {}
         for sc in schemes:
-            if sheet == "Short Duration":
+            if sheet == "Short Term":
                 subset = df_k[df_k["Scheme"].str.contains(sc, na=False)]
             else:
                 subset = df_k[df_k["Scheme"] == sc]
