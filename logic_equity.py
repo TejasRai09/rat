@@ -223,12 +223,51 @@ CATEGORIES = [
             "Kotak Quant Fund - Reg - Growth",
             "Kotak Technology Fund - Reg - Growth",
             "Kotak Healthcare Fund - Reg - Growth",
-            "Kotak Transportation & Logistics Fund - Reg - Growth",
-            "Kotak Energy Opportunities Fund - Reg - Growth",
+            # Not filled until the Estimation sheet has rows for them:
+            #   "Kotak Transportation & Logistics Fund - Reg - Growth",
+            #   "Kotak Energy Opportunities Fund - Reg - Growth",
     ]},
 ]
 
+# ───────────── ESTIMATION NAME → CURRENT KOTAK NAME ─────────────────────
+# Scheme names above are the row labels in the Estimation sheet (column B).
+# When Kotak renames a fund, map the Estimation name to Kotak's new name here.
+# Each rename below was verified against the Kotak reports by inception date
+# and continuity of AUM / NAV across the report where the name changed.
+KOTAK_NAMES = {
+    # Renamed in the 27-Aug-2026 report
+    "HDFC Large and Mid Cap Fund - Growth":
+        "HDFC Large & Mid Cap Fund - Growth",
+    "ICICI Prudential MidCap Fund - Growth":
+        "ICICI Prudential Mid Cap Fund - Growth",
+    "ICICI Prudential Smallcap Fund - Growth":
+        "ICICI Prudential Small Cap Fund - Growth",
+    "UTI Focused Fund - Reg - Growth":
+        "UTI Focused Fund (30 stocks) - Reg - Growth",
+    "ICICI Prudential Multi-Asset Fund - Growth":
+        "ICICI Prudential Multi Asset Allocation Fund - Growth",
+    "ICICI Prudential Pharma Healthcare and Diagnostics Fund - Reg - Growth":
+        "ICICI Prudential Healthcare Fund - Reg - Growth",
+    # Renamed in the 10-Sep-2026 report
+    "Kotak Large & Midcap Fund - Reg - Growth":
+        "Kotak Large & Mid Cap Fund - Reg - Growth",
+    "Kotak Midcap Fund - Reg - Growth":
+        "Kotak Mid Cap Fund - Reg - Growth",
+    # Kotak's name already differed before Apr-2026 (never auto-filled)
+    "ICICI Prudential Focused Equity Fund  - Ret - Growth":
+        "ICICI Prudential Focused Fund - Ret - Growth",
+    "HDFC Multi - Asset Fund - Growth":
+        "HDFC Multi Asset Allocation Fund - Growth",
+    "HDFC Non-Cyclical Consumer Fund - Reg - Growth":     # same inception 12-Jul-2023
+        "HDFC Consumption Fund - Reg - Growth",
+}
+
 # ────────────────────────── HELPERS ─────────────────────────────────────
+def _norm(name) -> str:
+    """Normalise a fund name for matching: collapse whitespace, ignore case."""
+    return " ".join(str(name).split()).casefold()
+
+
 def _clean(x):
     """ '--', 'NA', blanks → 0.0 ; else float """
     if pd.isna(x):
@@ -251,19 +290,22 @@ def sheet_maps(sheet):
     )
 
 
-def pull_metrics(sheet, schemes):
+def pull_metrics(sheet, schemes, warnings):
     """Return {scheme: [8 metrics]} from one Kotak worksheet."""
     df   = pd.read_excel(KOTAK_FILE, sheet_name=sheet, header=None)
-    names = df[0].astype(str).str.strip()
+    names = [_norm(v) for v in df[0]]
 
     rets, risks = sheet_maps(sheet)
     out = {}
     for sc in schemes:
-        mask = names.eq(sc)
-        if not mask.any():
-            print(f"[WARN] '{sc}' not found in '{sheet}'")
+        kotak_name = KOTAK_NAMES.get(sc, sc)
+        try:
+            r = names.index(_norm(kotak_name))
+        except ValueError:
+            msg = f"Equity: '{kotak_name}' not found in Kotak sheet '{sheet}' - values NOT updated"
+            print(f"[WARN] {msg}")
+            warnings.append(msg)
             continue
-        r = mask.idxmax()
         raw = [
             df.iat[r, rets["1yr"]],
             df.iat[r, rets["3yr"]],
@@ -278,21 +320,24 @@ def pull_metrics(sheet, schemes):
     return out
 
 
-def write_metrics(all_data, est_path):
+def write_metrics(all_data, est_path, warnings):
     wb = load_workbook(est_path)
     ws = wb[EST_SHEET]
 
     # quick lookup: fund name → row
-    name_to_row = {
-        (ws.cell(r, 2).value or "").strip(): r
-        for r in range(1, ws.max_row + 1)
-    }
+    name_to_row = {}
+    for r in range(1, ws.max_row + 1):
+        v = ws.cell(r, 2).value
+        if v is not None:
+            name_to_row.setdefault(_norm(v), r)
 
     for block in all_data.values():
         for scheme, metrics in block.items():
-            row = name_to_row.get(scheme)
+            row = name_to_row.get(_norm(scheme))
             if not row:
-                print(f"[WARN] '{scheme}' missing in Estimation sheet")
+                msg = f"Equity: '{scheme}' has no row in Estimation sheet '{EST_SHEET}' - skipped"
+                print(f"[WARN] {msg}")
+                warnings.append(msg)
                 continue
             for col_letter, val in zip(EST_COLS, metrics):
                 ws[f"{col_letter}{row}"].value = val
@@ -302,14 +347,17 @@ def write_metrics(all_data, est_path):
 
 
 def update_estimation(kotak_path, est_path):
+    """Update the equity sheet in place. Returns a list of warning messages."""
     global KOTAK_FILE, EST_FILE
     KOTAK_FILE = Path(kotak_path)
     EST_FILE   = Path(est_path)
 
+    warnings = []
     combined = {}
     for blk in CATEGORIES:
-        combined[blk["sheet"]] = pull_metrics(blk["sheet"], blk["schemes"])
-    write_metrics(combined, EST_FILE)
+        combined[blk["sheet"]] = pull_metrics(blk["sheet"], blk["schemes"], warnings)
+    write_metrics(combined, EST_FILE, warnings)
+    return warnings
 
 
 # ─────────────────────────── CLI ENTRY ──────────────────────────────────

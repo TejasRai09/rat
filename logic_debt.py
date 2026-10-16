@@ -74,7 +74,10 @@ def flatten_kotak(kotak_path, sheet_name):
     print(f"[DEBUG] Cleaned columns: {df.columns.tolist()}")
     return df
 
-def process(est_path, kotak_path):
+def process(est_path, kotak_path, warnings=None):
+    """Write debt metrics into a copy of est_path. Problems are appended to warnings."""
+    if warnings is None:
+        warnings = []
     print(f"[DEBUG] Starting process with Estimation: {est_path}, Kotak: {kotak_path}")
     base = os.path.dirname(est_path)
     output = os.path.join(base, "Estimation_V4_updated.xlsx")
@@ -94,7 +97,9 @@ def process(est_path, kotak_path):
         for m in METRICS:
             matches = [c for c in df_k.columns if m in c]
             if not matches:
-                print(f"[DEBUG] No column match for metric: {m}")
+                msg = f"Debt: column '{m}' not found in Kotak sheet '{sheet}' - values NOT updated"
+                print(f"[WARN] {msg}")
+                warnings.append(msg)
             exact = [c for c in matches if c.endswith(m)]
             col_map[m] = exact[0] if exact else (matches[0] if matches else None)
         print(f"[DEBUG] Column map: {col_map}")
@@ -107,7 +112,9 @@ def process(est_path, kotak_path):
             else:
                 subset = df_k[df_k["Scheme"] == sc]
             if subset.empty:
-                print(f"[DEBUG] Warning: '{sc}' not found in {sheet}")
+                msg = f"Debt: '{sc}' not found in Kotak sheet '{sheet}' - values NOT updated"
+                print(f"[WARN] {msg}")
+                warnings.append(msg)
                 continue
             row = subset.iloc[0]
             data[sc] = {}
@@ -133,6 +140,8 @@ def process(est_path, kotak_path):
             row_idx = first_row + idx
             if sc in data:
                 for m, col_idx in est_cols.items():
+                    if col_map[m] is None:
+                        continue  # keep existing value rather than blanking it
                     ws.cell(row=row_idx, column=col_idx, value=data[sc][m])
         print(f"[DEBUG] Finished writing block: {sheet}")
 

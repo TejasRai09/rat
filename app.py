@@ -1,9 +1,10 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file
+from flask import (Flask, render_template, request, redirect, url_for, flash,
+                   send_file, send_from_directory)
 from werkzeug.utils import secure_filename
 import os
 import logic_combined as logic
 
-UPLOAD_DIR   = "uploads"
+UPLOAD_DIR   = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 ALLOWED_EXT  = {".xlsx", ".xls"}
 
 app = Flask(__name__)
@@ -52,14 +53,29 @@ def index():
         est_path   = _save(est)
 
         try:
-            out_path = logic.update(kotak_path, est_path, section)
-            flash(f"{section.title()} section updated successfully!", "success")
-            return send_file(out_path, as_attachment=True)
+            out_path, warnings = logic.update(kotak_path, est_path, section)
         except Exception as e:
             flash(f"Processing error: {e}", "danger")
             return redirect(url_for("index"))
 
+        if not warnings:
+            return send_file(out_path, as_attachment=True)
+
+        # Some funds could not be updated: show them before the user downloads,
+        # so stale values are never passed on unnoticed.
+        return render_template(
+            "index.html",
+            warnings=warnings,
+            section=section,
+            download_name=os.path.basename(out_path),
+        )
+
     return render_template("index.html")
+
+
+@app.route("/download/<path:filename>")
+def download(filename):
+    return send_from_directory(UPLOAD_DIR, filename, as_attachment=True)
 
 
 if __name__ == "__main__":

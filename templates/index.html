@@ -133,6 +133,17 @@
             {% endif %}
           {% endwith %}
 
+          {% if warnings %}
+            <div class="alert alert-warning">
+              <strong>{{ section.title() }} update finished, but {{ warnings|length }} item(s) were NOT updated.</strong>
+              These cells still hold their previous values &mdash; please check them before using the file.
+              <ul class="mt-2 mb-3 small">
+                {% for w in warnings %}<li>{{ w }}</li>{% endfor %}
+              </ul>
+              <a class="btn btn-sm btn-dark" href="{{ url_for('download', filename=download_name) }}">Download updated file</a>
+            </div>
+          {% endif %}
+
           <form method="post" enctype="multipart/form-data">
             <div class="mb-4">
               <label class="form-label">Kotak Report (.xlsx)</label>

@@ -33,17 +33,19 @@ logic_debt = importlib.util.module_from_spec(_spec_debt)
 _spec_debt.loader.exec_module(logic_debt)
 
 # ── Thin wrappers so callers get one consistent API ────────────────────
-def update_equity(kotak_path: str | os.PathLike, est_path: str | os.PathLike) -> str:
+def update_equity(kotak_path: str | os.PathLike, est_path: str | os.PathLike,
+                  warnings: list) -> str:
     """Run the equity updater *in place*. Returns the (same) est_path."""
-    logic_equity.update_estimation(kotak_path, est_path)
+    warnings.extend(logic_equity.update_estimation(kotak_path, est_path))
     return str(est_path)
 
-def update_debt(kotak_path: str | os.PathLike, est_path: str | os.PathLike) -> str:
+def update_debt(kotak_path: str | os.PathLike, est_path: str | os.PathLike,
+                warnings: list) -> str:
     """
     Run the debt updater. logic_debt.process() copies the file and returns
     the new filename. We forward that filename so callers know what to send.
     """
-    return logic_debt.process(est_path, kotak_path)
+    return logic_debt.process(est_path, kotak_path, warnings)
 
 # def update(kotak_path, est_path, section: str = "both") -> str:
 #     """
@@ -61,18 +63,20 @@ def update_debt(kotak_path: str | os.PathLike, est_path: str | os.PathLike) -> s
 #     if section in {"debt", "both"}:
 #         out_path = update_debt(kotak_path, out_path)
 #     return out_path
-def update(kotak_path, est_path, section: str = "both") -> str:
+def update(kotak_path, est_path, section: str = "both") -> tuple[str, list[str]]:
     """
     section: 'equity' | 'debt' | 'both'
-    Returns the *final* path (might be a copy if debt update ran last).
+    Returns (final path, warnings). The path might be a copy if debt update
+    ran last; warnings lists every fund/metric that could NOT be updated.
     """
     section = section.lower()
     if section not in {"equity", "debt", "both"}:
         raise ValueError("section must be 'equity', 'debt', or 'both'")
 
+    warnings = []
     out_path = est_path
     if section in {"equity", "both"}:
-        out_path = update_equity(kotak_path, out_path)
+        out_path = update_equity(kotak_path, out_path, warnings)
     if section in {"debt", "both"}:
-        out_path = update_debt(kotak_path, out_path)
-    return out_path
+        out_path = update_debt(kotak_path, out_path, warnings)
+    return out_path, warnings
